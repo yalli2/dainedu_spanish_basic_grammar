@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>다인에듀 기초 스페인어 문법 — 인터랙티브 학습</title>
+<meta name="description" content="황부연(후안샘)의 기초 스페인어 문법 교재를 바탕으로 한 셀프 학습 사이트. 30개 챕터, 인터랙티브 연습문제, 시계·숫자·달력 트레이너.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🇪🇸</text></svg>">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header class="topbar"><div class="wrap">
+  <a class="brand" href="index.html"><span class="logo">D</span><span>기초 스페인어 문법<small>다인에듀 · 후안샘</small></span></a>
+  <span class="spacer"></span>
+  <button class="iconbtn" id="themeBtn" title="다크 모드">🌓</button>
+  <button class="iconbtn" id="resetBtn" title="진도 초기화">↺ 진도</button>
+</div></header>
+
+<section class="hero"><div class="wrap">
+  <div class="blob a"></div><div class="blob b"></div>
+  <h1>혼자서도 끝내는<br><span>기초 스페인어 문법</span></h1>
+  <p>발음과 숫자, 시간 읽기부터 명사·관사·동사 시제·전치사까지. 각 장을 <b>학습 → 연습문제 → 종합 퀴즈</b> 순서로 공부하세요. 모든 스페인어 예문은 🔊 버튼으로 들을 수 있고, 진도는 이 브라우저에 자동 저장됩니다.</p>
+  <div class="stats">
+    <div class="stat"><b id="statTotal">31</b><span>전체 장</span></div>
+    <div class="stat"><b id="statStart">0</b><span>학습 시작</span></div>
+    <div class="stat"><b id="statDone">0</b><span>완료한 장</span></div>
+  </div>
+  <div class="search"><input id="q" type="text" placeholder="🔍 장 검색 (예: 과거, 전치사, 시간…)"></div>
+</div></section>
+
+<main class="wrap" id="hub"></main>
+
+<footer><div class="wrap">
+  <b>다인원격평생교육직업학원 (다인에듀)</b> · 교재 「기초 스페인어 문법」 강사 황부연 · <a href="https://www.dainedu.net" target="_blank" rel="noopener">www.dainedu.net</a><br>
+  본 사이트의 모든 콘텐츠는 교육 목적으로 제작되었습니다.
+</div></footer>
+<script src="js/app.js"></script>
+</body>
+</html>

@@ -401,3 +401,45 @@ footer b{color:var(--ink)}
 .item select.blank.sel:focus{box-shadow:0 0 0 3px rgba(29,79,184,.18)}
 .item select.blank.sel.ok{border-color:var(--green);color:var(--green);background-color:#eaf7ef}
 .item select.blank.sel.ng{border-color:var(--red);color:var(--red);background-color:#fdecef}
+/* ---------- 틀린 문제 다시 풀기 · 오답노트 ---------- */
+.btn.w{background:#fdecef;color:var(--red);border:1.5px solid #f3b7c1}
+.btn.w:hover{background:#fbdde3}
+.btn.sm{padding:6px 12px;font-size:12.5px;border-radius:10px}
+.tabs button .cnt.wcnt{background:var(--red);color:#fff;opacity:1;border-radius:99px;padding:1px 7px;font-weight:800}
+.rtag{display:inline-block;margin-left:8px;font-size:12px;font-weight:800;color:var(--red);background:#fdecef;border-radius:99px;padding:2px 9px;vertical-align:middle}
+.exr.retry{border:2px dashed #f3b7c1}
+.retryview{margin:6px 0 18px}
+.retrytop{display:flex;justify-content:space-between;align-items:center;gap:12px;background:#fff6f7;border:1.5px solid #f3b7c1;border-radius:14px;padding:12px 16px;margin-bottom:12px;flex-wrap:wrap}
+.retrytop b{color:var(--red)}
+.wronghead .wstat{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:10px}
+.wronghead .wstat div{background:var(--bg);border-radius:14px;padding:12px;text-align:center}
+.wronghead .wstat b{display:block;font-size:26px;font-weight:900;color:var(--red)}
+.wronghead .wstat div:nth-child(2) b{color:var(--green)}
+.wronghead .wstat div:nth-child(3) b{color:var(--ink)}
+.wronghead .wstat span{font-size:12.5px;color:var(--muted);font-weight:700}
+.wbtns{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.wempty{text-align:center}
+.wgroup .wgh{display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+.wgroup .wgh .n{background:var(--ink);color:#fff;border-radius:8px;width:28px;height:28px;display:grid;place-items:center;font-weight:900;font-size:14px}
+.wgroup .wgh h3{margin:0;font-size:16px}
+.wgroup .wgh .wc{font-size:12px;font-weight:800;color:var(--red);background:#fdecef;border-radius:99px;padding:2px 9px}
+.wgroup .wgh .btn{margin-left:auto}
+.wcard{position:relative;display:flex;gap:12px;justify-content:space-between;border:1px solid var(--line);border-left:4px solid var(--red);border-radius:12px;padding:10px 40px 10px 14px;margin-bottom:8px;background:#fff}
+.wcard .wq{font-size:15px;line-height:1.6}
+.wcard .wa{color:var(--green);background:#eaf7ef;border-radius:6px;padding:0 5px}
+.wcard .wans{font-size:14px;margin-top:3px}
+.wcard .wmine{font-size:13px;color:var(--red);margin-top:4px}
+.wcard .wmine s{text-decoration-thickness:1.5px}
+.wcard .wmeta{display:flex;flex-direction:column;align-items:flex-end;gap:3px;font-size:12px;color:var(--muted);white-space:nowrap}
+.wcard .wn{font-weight:800;color:var(--red)}
+.wcard .wdel{position:absolute;top:8px;right:8px;border:0;background:transparent;color:var(--muted);font-size:15px;cursor:pointer;border-radius:8px;width:26px;height:26px}
+.wcard .wdel:hover{background:var(--line);color:var(--red)}
+.chcard .wbadge{position:absolute;top:12px;right:12px;font-size:11.5px;font-weight:800;color:var(--red);background:#fdecef;border-radius:99px;padding:2px 8px}
+.chcard{position:relative}
+@media print{
+  body.print-wrong header, body.print-wrong footer, body.print-wrong .tabs, body.print-wrong .chapnav, body.print-wrong .chatfab, body.print-wrong .chatwin, body.print-wrong .wbtns, body.print-wrong .wdel, body.print-wrong .wgh .btn{display:none!important}
+  body.print-wrong .panel{display:none!important}
+  body.print-wrong .panel.active{display:block!important}
+  body.print-wrong .chap-hero{padding:10px 0!important;background:none!important;color:#000!important}
+  body.print-wrong .wcard{break-inside:avoid}
+}

@@ -438,11 +438,17 @@ function exrShell(idx, ex){
   if(chProgress(CUR.id).done.includes(idx)) d.classList.add('done');
   return d;
 }
+/* 연습 모드: instant(바로 확인) | exam(시험 모드) */
+let EXMODE=localStorage.getItem('dbsg_exmode')||'instant';
+const isExam=()=>EXMODE==='exam';
 function foot(d, onCheck, onReset, onShow){
   const f=el('div','foot'); const bC=el('button','btn p','✔ 정답 확인'); const bR=el('button','btn s','↺ 다시'); const bS=el('button','btn o','정답 보기'); const sc=el('span','score');
-  bC.onclick=()=>{ const r=onCheck(); sc.textContent=`${r[0]} / ${r[1]}`; sc.className='score'+(r[0]===r[1]?' good':''); if(r[0]===r[1]){ d.classList.add('done'); setDone(CUR.id,+d.dataset.idx,CUR.exercises.length); confetti(60); toast('🎉 ¡Perfecto! 문제를 모두 맞혔습니다'); } };
+  const doCheck=(quiet)=>{ const r=onCheck(); sc.textContent=`${r[0]} / ${r[1]}`; sc.className='score'+(r[0]===r[1]?' good':''); if(r[0]===r[1]){ d.classList.add('done'); setDone(CUR.id,+d.dataset.idx,CUR.exercises.length); if(!quiet){ confetti(60); toast('🎉 ¡Perfecto! 문제를 모두 맞혔습니다'); } } return r; };
+  bC.onclick=()=>doCheck(false);
   bR.onclick=()=>{ onReset(); sc.textContent=''; };
+  d._api={check:()=>doCheck(true), reset:()=>{onReset(); sc.textContent='';}, show:onShow||null, revealButtons:()=>{ bS.style.display=''; bC.style.display=''; }};
   f.append(bC,bR); if(onShow){ bS.onclick=onShow; f.appendChild(bS);} f.appendChild(sc); d.appendChild(f);
+  if(isExam()){ bC.style.display='none'; bS.style.display='none'; }
 }
 function markItem(it, res, ans, inputEl){
   it.classList.remove('ok','ng','near'); it.classList.add(res==='ok'?'ok':res==='near'?'near':'ng');
@@ -451,19 +457,21 @@ function markItem(it, res, ans, inputEl){
 }
 EXR.fill=function(idx, ex){
   const d=exrShell(idx,ex); d.appendChild(accentBar()); const box=el('div','items');
-  ex.items.forEach((it,i)=>{ const r=el('div','item'); r.appendChild(el('span','idx',i+1+'.')); const parts=it.q.split('___'); parts.forEach((p,k)=>{ r.appendChild(el('span',null,esify(p))); if(k<parts.length-1){ const inp=el('input','blank'); inp.type='text'; inp.autocomplete='off'; inp.spellcheck=false; inp.dataset.k=k; if(it.hint&&k===0) inp.placeholder=it.hint; r.appendChild(inp); inp.onkeydown=e=>{ if(e.key==='Enter'){ const all=$$('input.blank',box); const n=all[all.indexOf(inp)+1]; if(n) n.focus(); } }; } }); if(it.ko) r.appendChild(el('div','ko',it.ko)); const sp=spk(it.say||it.q.replace(/___/g, (Array.isArray(it.a)?it.a[0]:it.a).toString().split('|')[0]),true); r.appendChild(sp); box.appendChild(r); });
+  ex.items.forEach((it,i)=>{ const r=el('div','item'); r.appendChild(el('span','idx',i+1+'.')); const parts=it.q.split('___'); parts.forEach((p,k)=>{ r.appendChild(el('span',null,esify(p))); if(k<parts.length-1){ const inp=el('input','blank'); inp.type='text'; inp.autocomplete='off'; inp.spellcheck=false; inp.dataset.k=k; if(it.hint&&k===0) inp.placeholder=it.hint; r.appendChild(inp); inp.onkeydown=e=>{ if(e.key==='Enter'){ const rowInps=$$('input.blank',r); if(!isExam() && rowInps.every(x=>x.value.trim())){ checkRow(r,i); } const all=$$('input.blank',box); const n=all[all.indexOf(inp)+1]; if(n) n.focus(); } }; } }); if(it.ko) r.appendChild(el('div','ko',it.ko)); const sp=spk(it.say||it.q.replace(/___/g, (Array.isArray(it.a)?it.a[0]:it.a).toString().split('|')[0]),true); r.appendChild(sp); box.appendChild(r); });
   d.appendChild(box); bindSpk(d);
   const answers=(it)=> (Array.isArray(it.a)?it.a:[it.a]); // per blank: array of strings; string may have alternatives separated by |
-  foot(d, ()=>{ let ok=0; $$('.item',box).forEach((r,i)=>{ const it=ex.items[i]; const ans=answers(it); const inps=$$('input.blank',r); let allOk=true, near=false; inps.forEach((inp,k)=>{ const accepted=String(ans[k]??ans[0]).split('|'); const res=check(inp.value,accepted); inp.classList.remove('ok','ng'); inp.classList.add(res==='ok'?'ok':'ng'); if(res!=='ok') allOk=false; if(res==='near') near=true; }); const show=ans.map(a=>String(a).split('|')[0]).join(' / '); markItem(r, allOk?'ok':near?'near':'ng', show); if(allOk) ok++; }); return [ok, ex.items.length]; },
+  function checkRow(r,i){ const it=ex.items[i]; const ans=answers(it); const inps=$$('input.blank',r); let allOk=true, near=false; inps.forEach((inp,k)=>{ const accepted=String(ans[k]??ans[0]).split('|'); const res=check(inp.value,accepted); inp.classList.remove('ok','ng'); inp.classList.add(res==='ok'?'ok':'ng'); if(res!=='ok') allOk=false; if(res==='near') near=true; }); const show=ans.map(a=>String(a).split('|')[0]).join(' / '); markItem(r, allOk?'ok':near?'near':'ng', show); if(allOk&&!isExam()) speak(it.say||it.q.replace(/___/g,()=>String(ans[0]).split('|')[0]).replace(/<.*?>/g,'')); return allOk; }
+  foot(d, ()=>{ let ok=0; $$('.item',box).forEach((r,i)=>{ if(checkRow(r,i)) ok++; }); return [ok, ex.items.length]; },
    ()=>{ $$('.item',box).forEach(r=>{ r.classList.remove('ok','ng','near'); $$('input',r).forEach(i=>{i.value=''; i.classList.remove('ok','ng');}); const a=r.querySelector('.ans'); a&&a.remove(); }); },
    ()=>{ $$('.item',box).forEach((r,i)=>{ const ans=answers(ex.items[i]); $$('input.blank',r).forEach((inp,k)=>inp.value=String(ans[k]??ans[0]).split('|')[0]); }); });
   return d;
 };
 EXR.mc=function(idx, ex){
   const d=exrShell(idx,ex); const box=el('div','items'); const sel={};
-  ex.items.forEach((it,i)=>{ const r=el('div','item'); r.style.flexDirection='column'; r.style.alignItems='flex-start'; const q=el('div',null,`<span class="idx">${i+1}.</span> ${esify(it.q)}`); r.appendChild(q); if(it.ko) r.appendChild(el('div','ko',it.ko)); const o=el('div','opts'); it.opts.forEach((op,k)=>{ const b=el('button','opt',esify(op)); b.onclick=()=>{ $$('.opt',o).forEach(x=>x.classList.remove('sel')); b.classList.add('sel'); sel[i]=k; }; o.appendChild(b); }); r.appendChild(o); box.appendChild(r); });
+  ex.items.forEach((it,i)=>{ const r=el('div','item'); r.style.flexDirection='column'; r.style.alignItems='flex-start'; const q=el('div',null,`<span class="idx">${i+1}.</span> ${esify(it.q)}`); r.appendChild(q); if(it.ko) r.appendChild(el('div','ko',it.ko)); const o=el('div','opts'); it.opts.forEach((op,k)=>{ const b=el('button','opt',esify(op)); b.onclick=()=>{ if(r.classList.contains('ok')&&!isExam()) return; $$('.opt',o).forEach(x=>x.classList.remove('sel')); b.classList.add('sel'); sel[i]=k; if(!isExam()) checkRow(r,i); }; o.appendChild(b); }); r.appendChild(o); box.appendChild(r); });
   d.appendChild(box); bindSpk(d);
-  foot(d, ()=>{ let ok=0; $$('.item',box).forEach((r,i)=>{ const it=ex.items[i]; const opts=$$('.opt',r); opts.forEach((b,k)=>{ b.classList.remove('ok','ng'); if(k===it.a) b.classList.add('ok'); else if(sel[i]===k) b.classList.add('ng'); }); const good=sel[i]===it.a; markItem(r, good?'ok':'ng', it.opts[it.a].replace(/\[\[|\]\]/g,'')+(it.exp?' — '+it.exp:'')); if(good){ok++;} else if(it.exp){ r.querySelector('.ans').textContent='✗ 정답: '+it.opts[it.a].replace(/\[\[|\]\]/g,'')+' — '+it.exp; } }); return [ok, ex.items.length]; },
+  function checkRow(r,i){ const it=ex.items[i]; const opts=$$('.opt',r); opts.forEach((b,k)=>{ b.classList.remove('ok','ng'); if(k===it.a) b.classList.add('ok'); else if(sel[i]===k) b.classList.add('ng'); }); const good=sel[i]===it.a; markItem(r, good?'ok':'ng', it.opts[it.a].replace(/\[\[|\]\]/g,'')+(it.exp?' — '+it.exp:'')); if(good&&it.exp) r.querySelector('.ans').textContent='✓ ¡Correcto! — '+it.exp; return good; }
+  foot(d, ()=>{ let ok=0; $$('.item',box).forEach((r,i)=>{ if(checkRow(r,i)) ok++; }); return [ok, ex.items.length]; },
    ()=>{ for(const k in sel) delete sel[k]; $$('.item',box).forEach(r=>{ r.classList.remove('ok','ng'); $$('.opt',r).forEach(b=>b.classList.remove('ok','ng','sel')); const a=r.querySelector('.ans'); a&&a.remove(); }); });
   return d;
 };
@@ -485,11 +493,14 @@ EXR.match=function(idx, ex){
   const d=exrShell(idx,ex); d.appendChild(el('p','ko','왼쪽과 오른쪽에서 짝이 되는 항목을 차례로 클릭하세요.'));
   const g=el('div','match'); const L=el('div','mcol'), R=el('div','mcol'); let a=null, b=null; let got=0;
   const left=ex.pairs.map((p,i)=>({t:p[0],i})); const right=shuffle(ex.pairs.map((p,i)=>({t:p[1],i})));
-  const tryMatch=()=>{ if(!a||!b) return; if(+a.dataset.i===+b.dataset.i){ a.classList.add('ok'); b.classList.add('ok'); got++; speak(a.dataset.es||a.textContent); if(got===ex.pairs.length){ d.classList.add('done'); setDone(CUR.id,idx,CUR.exercises.length); confetti(60); toast('🎉 모두 연결했습니다!'); } } else { a.classList.add('ng'); b.classList.add('ng'); const x=a,y=b; setTimeout(()=>{x.classList.remove('ng','sel'); y.classList.remove('ng','sel');},600); } a=null;b=null; };
+  const pairs=new Map();
+  const tryMatch=()=>{ if(!a||!b) return; if(isExam()){ a.classList.add('paired'); b.classList.add('paired'); a.classList.remove('sel'); b.classList.remove('sel'); const n=pairs.size+1; pairs.forEach((v,k)=>{ if(v===b){ k.classList.remove('paired'); k.querySelector('.pn')?.remove(); pairs.delete(k);} }); if(pairs.has(a)){ const old=pairs.get(a); old.classList.remove('paired'); old.querySelector('.pn')?.remove(); } pairs.set(a,b); [a,b].forEach(x=>{ x.querySelector('.pn')?.remove(); x.insertAdjacentHTML('beforeend',`<span class="pn">${[...pairs.keys()].indexOf(a)+1}</span>`); }); a=null;b=null; return; } if(+a.dataset.i===+b.dataset.i){ a.classList.add('ok'); b.classList.add('ok'); got++; speak(a.dataset.es||a.textContent); if(got===ex.pairs.length){ d.classList.add('done'); setDone(CUR.id,idx,CUR.exercises.length); confetti(60); toast('🎉 모두 연결했습니다!'); } } else { a.classList.add('ng'); b.classList.add('ng'); const x=a,y=b; setTimeout(()=>{x.classList.remove('ng','sel'); y.classList.remove('ng','sel');},600); } a=null;b=null; };
   left.forEach(it=>{ const m=el('button','mi',it.t); m.dataset.i=it.i; m.dataset.es=it.t; m.onclick=()=>{ $$('.mi',L).forEach(x=>x.classList.remove('sel')); m.classList.add('sel'); a=m; tryMatch(); }; L.appendChild(m); });
   right.forEach(it=>{ const m=el('button','mi',it.t); m.dataset.i=it.i; m.onclick=()=>{ $$('.mi',R).forEach(x=>x.classList.remove('sel')); m.classList.add('sel'); b=m; tryMatch(); }; R.appendChild(m); });
   g.append(L,R); d.appendChild(g);
-  const f=el('div','foot'); const bR=el('button','btn s','↺ 다시 섞기'); bR.onclick=()=>{ got=0; a=b=null; const nd=EXR.match(idx,ex); d.replaceWith(nd); }; f.appendChild(bR); d.appendChild(f);
+  const f=el('div','foot'); const bR=el('button','btn s','↺ 다시 섞기'); const sc=el('span','score'); bR.onclick=()=>{ got=0; a=b=null; const nd=EXR.match(idx,ex); d.replaceWith(nd); }; f.append(bR,sc); d.appendChild(f);
+  if(isExam()) d.appendChild(el('p','ko','시험 모드: 짝을 지어 두면 번호가 붙고, 제출할 때 채점됩니다.'));
+  d._api={check:()=>{ let ok=0; pairs.forEach((bb,aa)=>{ const good=+aa.dataset.i===+bb.dataset.i; aa.classList.add(good?'ok':'ng'); bb.classList.add(good?'ok':'ng'); if(good) ok++; }); $$('.mi',g).forEach(m=>{ if(!m.classList.contains('ok')&&!m.classList.contains('ng')) m.classList.add('ng'); }); sc.textContent=`${ok} / ${ex.pairs.length}`; if(ok===ex.pairs.length){ d.classList.add('done'); setDone(CUR.id,idx,CUR.exercises.length); } return [ok, ex.pairs.length]; }, reset:()=>bR.click(), show:()=>{ $$('.mi',L).forEach(m=>{ const r=$$('.mi',R).find(x=>x.dataset.i===m.dataset.i); m.classList.remove('ng'); r.classList.remove('ng'); m.classList.add('ok'); r.classList.add('ok'); m.querySelector('.pn')?.remove(); r.querySelector('.pn')?.remove(); const n=+m.dataset.i+1; m.insertAdjacentHTML('beforeend',`<span class="pn">${n}</span>`); r.insertAdjacentHTML('beforeend',`<span class="pn">${n}</span>`); }); }, revealButtons:()=>{}};
   return d;
 };
 EXR.order=function(idx, ex){
@@ -515,6 +526,27 @@ EXR.tf=function(idx, ex){ // 참/거짓 or 선택 2지
   return EXR.mc(idx,{...ex,items:ex.items.map(it=>({q:it.q,opts:ex.opts||['○ 맞다','✗ 틀리다'],a:it.a,exp:it.exp,ko:it.ko}))});
 };
 function renderExercise(idx, ex){ const f=EXR[ex.type]||EXR.fill; return f(idx,ex); }
+
+/* ---------- 연습문제 패널 (모드 선택 + 시험 제출) ---------- */
+function renderExercisePanel(panel, CH){
+  panel.innerHTML='';
+  if(!CH.exercises.length){ panel.appendChild(el('div','sec','이 장은 학습 탭의 인터랙티브 위젯으로 연습합니다.')); return; }
+  const bar=el('div','modebar');
+  bar.innerHTML=`<div class="modes"><button data-m="instant" class="${EXMODE==='instant'?'active':''}">⚡ 바로 확인</button><button data-m="exam" class="${EXMODE==='exam'?'active':''}">📝 시험 모드</button></div><div class="modedesc">${EXMODE==='instant'?'문제마다 바로 정답을 확인하며 공부합니다. 객관식은 클릭 즉시, 빈칸은 Enter로 채점됩니다.':'정답을 숨기고 모든 문제를 푼 뒤 한 번에 제출·채점합니다. 시간이 기록됩니다.'}</div>`;
+  $$('button',bar).forEach(b=>b.onclick=()=>{ if(b.dataset.m===EXMODE) return; EXMODE=b.dataset.m; localStorage.setItem('dbsg_exmode',EXMODE); renderExercisePanel(panel,CH); toast(EXMODE==='exam'?'📝 시험 모드로 전환했습니다':'⚡ 바로 확인 모드로 전환했습니다'); });
+  panel.appendChild(bar);
+  const list=el('div'); CH.exercises.forEach((ex,i)=>list.appendChild(renderExercise(i,ex))); bindSpk(list);
+  if(isExam()){
+    const t0=Date.now(); let timer; const ebar=el('div','exambar'); ebar.innerHTML=`<span class="timer">⏱ 00:00</span><span class="ko">${CH.exercises.length}개 연습문제 · 모두 푼 뒤 제출하세요</span>`;
+    const tm=ebar.querySelector('.timer'); timer=setInterval(()=>{ const s=Math.floor((Date.now()-t0)/1000); tm.textContent='⏱ '+String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0'); },500);
+    const sub=el('button','btn p','✅ 시험 제출'); const res=el('div');
+    sub.onclick=()=>{ if(!confirm('제출할까요? 제출 후에는 정답이 표시됩니다.')) return; clearInterval(timer); let ok=0,tot=0; const rows=[]; $$('.exr',list).forEach((d,i)=>{ const r=d._api.check(); ok+=r[0]; tot+=r[1]; rows.push({t:CH.exercises[i].title,r}); d._api.revealButtons&&d._api.revealButtons(); }); const p=Math.round(ok/tot*100); setBest(CH.id,p); const s=Math.floor((Date.now()-t0)/1000);
+      res.innerHTML=`<div class="sec result"><div class="ring" style="--p:${p}"><b>${p}%</b></div><div class="big">${p===100?'🏆':p>=70?'🎉':'💪'}</div><h3 style="justify-content:center">${p===100?'¡Perfecto! 만점입니다':p>=70?'¡Muy bien! 합격입니다':'¡Ánimo! 틀린 문제를 복습하세요'}</h3><p>${ok} / ${tot} 정답 · 소요 시간 ${Math.floor(s/60)}분 ${s%60}초</p><table class="tbl" style="text-align:left"><tbody>${rows.map((x,i)=>`<tr><td class="s">${i+1}. ${x.t}</td><td style="text-align:right;font-weight:800;color:${x.r[0]===x.r[1]?'var(--green)':'var(--red)'}">${x.r[0]} / ${x.r[1]}</td></tr>`).join('')}</tbody></table></div>`;
+      const again=el('button','btn p','↺ 다시 시험 보기'); again.onclick=()=>renderExercisePanel(panel,CH); res.querySelector('.result').appendChild(again); sub.disabled=true; sub.textContent='제출 완료'; if(p>=70) confetti(120); res.scrollIntoView({behavior:'smooth'}); };
+    ebar.appendChild(sub); panel.appendChild(ebar); panel.appendChild(list); panel.appendChild(res);
+    const sub2=el('button','btn p','✅ 시험 제출'); sub2.style.margin='0 0 20px'; sub2.onclick=()=>sub.click(); list.appendChild(sub2);
+  } else panel.appendChild(list);
+}
 
 /* ---------- 종합 퀴즈 ---------- */
 function buildQuizPool(CH){
@@ -556,9 +588,7 @@ function renderChapter(CH){
   names.forEach(([n,c],i)=>{ const b=el('button',i?'':'active',n+c); b.onclick=()=>{ $$('button',tabs).forEach(x=>x.classList.remove('active')); panels.forEach(p=>p.classList.remove('active')); b.classList.add('active'); panels[i].classList.add('active'); if(i===2) renderQuiz(panels[2],CH); window.scrollTo({top:hero.offsetHeight,behavior:'smooth'}); }; tabs.appendChild(b); });
   panels[0].classList.add('active'); root.appendChild(tabs); panels.forEach(p=>root.appendChild(p));
   CH.sections.forEach(s=>panels[0].appendChild(renderSection(s)));
-  if(!CH.exercises.length) panels[1].appendChild(el('div','sec','이 장은 학습 탭의 인터랙티브 위젯으로 연습합니다.'));
-  CH.exercises.forEach((ex,i)=>panels[1].appendChild(renderExercise(i,ex)));
-  bindSpk(panels[1]);
+  renderExercisePanel(panels[1], CH);
   const nav=el('div','chapnav'); const prev=CHAPTERS[idx-1], next=CHAPTERS[idx+1];
   nav.innerHTML=(prev?`<a href="ch${prev.id}.html"><small>◀ 이전</small><b>${prev.icon} ${prev.title}</b></a>`:'<span></span>')+(next?`<a class="next" href="ch${next.id}.html"><small>다음 ▶</small><b>${next.icon} ${next.title}</b></a>`:'<a class="next" href="index.html"><small>처음으로</small><b>🏠 전체 목차</b></a>');
   root.appendChild(nav);
@@ -576,6 +606,76 @@ function renderHub(){
   const s=$('#q'); if(s) s.oninput=()=>{ const v=s.value.toLowerCase().trim(); $$('.chcard').forEach(c=>c.style.display=!v||c.dataset.search.includes(v)?'':'none'); $$('.part').forEach(pt=>{ pt.style.display=$$('.chcard',pt).some(c=>c.style.display!=='none')?'':'none'; }); };
 }
 
+/* ---------- 후안샘 봇 (내장 챗봇) ---------- */
+const TENSE_WORDS={presente:['현재','presente','지금'],indefinido:['직설법 과거','단순과거','indefinido','pretérito','과거'],imperfecto:['불완료','imperfecto'],perfecto:['현재완료','perfecto','완료'],futuro:['미래','futuro'],imperativo:['명령','imperativo'],imperativo_neg:['부정 명령','부정명령']};
+function stripHtml(h){ const t=document.createElement('div'); t.innerHTML=h; return t.textContent||''; }
+function kbScore(q, entry){ const nq=strip(q.toLowerCase()); const toks=nq.split(/[^a-z0-9가-힣ñ]+/); let s=0; entry.k.forEach(k=>{ const nk=strip(k.toLowerCase()); if(nk.length<2) return; if(nk.length<=2){ if(toks.includes(nk)) s+=2; } else if(nq.includes(nk)) s+=nk.length>=4?3:2; }); if(strip(entry.t.toLowerCase()).split(/\s+/).some(w=>w.length>1&&nq.includes(w))) s+=1; return s; }
+function chapterLink(id){ const c=CHAPTERS.find(x=>x.id===id); if(!c) return ''; const i=CHAPTERS.indexOf(c); return ` <a href="ch${id}.html">→ ${i>0?i+'장':'서론'} ${c.title} 보기</a>`; }
+function answerLocal(q){
+  const raw=q.trim(); const nq=strip(raw.toLowerCase());
+  // 숫자
+  const nm=raw.replace(/[.,\s]/g,'').match(/^(\d{1,9})$/)||(/(숫자|número|numero|스페인어로)/.test(nq)&&raw.match(/(\d[\d.,]*)/));
+  if(nm){ const n=parseInt(String(nm[1]).replace(/[.,]/g,'')); if(!isNaN(n)&&n<1e9){ const w=numToEs(n); return {html:`<b>${n.toLocaleString()}</b> = <span class="es">${w}</span><button class="spk sm" data-say="${w}">🔊</button>${n%100===1||Math.floor(n/100)%10?'<br><small>여성 명사 앞: '+numToEs(n,true)+'</small>':''}${chapterLink('02')}`}; } }
+  // 시간
+  const tm=raw.match(/(\d{1,2})\s*[:시h]\s*(\d{1,2})?\s*(분)?/);
+  if(tm&&(/시|:|hora|h\b/.test(raw))){ const h=+tm[1], m=+(tm[2]||0); if(h>=0&&h<=24&&m<60){ const pm=/오후|pm|tarde|noche|저녁|밤/i.test(raw); const am=/오전|am|mañana|아침|새벽/i.test(raw)||h>12; const h24=pm&&h<12?h+12:h; const r=timeToEs(h24,m); const v=r.verb.charAt(0).toUpperCase()+r.verb.slice(1); const full=(pm||am)?r.full:r.text; return {html:`🕒 <b>${h}:${String(m).padStart(2,'0')}</b> → <span class="es">${v} ${full}.</span><button class="spk sm" data-say="${r.verb} ${full}">🔊</button>${(pm||am)?'':'<br><small>오전/오후를 붙이면: de la mañana / de la tarde / de la noche</small>'}${r.alts.length>2?'<br><small>다른 표현: '+r.alts.filter(a=>!a.startsWith('es ')&&!a.startsWith('son ')&&a!==r.text).slice(0,3).join(' / ')+'</small>':''}${chapterLink('03')}`}; } }
+  // 동사 변화
+  const words=nq.replace(/[¿?¡!.,]/g,' ').split(/\s+/);
+  let verb=null; for(const w of words){ for(const t in VERBS){ if(VERBS[t].items[w]){ verb=w; break; } } if(verb) break; }
+  if(!verb){ const m2=nq.match(/([a-zñ]+(ar|er|ir))\b/); if(m2){ for(const t in VERBS){ if(VERBS[t].items[m2[1]]){ verb=m2[1]; break; } } } }
+  const kbBest=window.KB?Math.max(0,...KB.map(e=>kbScore(raw,e))):0; const grammarQ=/차이|vs|용법|언제|구별|비교|쓰나|쓰는|규칙|뜻/.test(nq)||(nq.match(/\b(ser|estar|saber|conocer|por|para|ir|haber)\b/g)||[]).length>=2;
+  if(verb&&grammarQ&&kbBest>=3) verb=null;
+  if(verb){ let tenses=Object.keys(VERBS).filter(t=>VERBS[t].items[verb]); const asked=Object.keys(TENSE_WORDS).filter(t=>TENSE_WORDS[t].some(w=>nq.includes(strip(w)))); let sel=asked.filter(t=>tenses.includes(t)); if(sel.includes('imperativo_neg')&&!/부정/.test(nq)) sel=sel.filter(t=>t!=='imperativo_neg'); if(sel.includes('indefinido')&&sel.includes('imperfecto')&&!/불완료/.test(nq)) sel=sel.filter(t=>t!=='imperfecto'); if(!sel.length) sel=tenses.slice(0,3); const tables=sel.map(t=>{ const pr=VERBS[t].pron||PRON; return `<b>${VERBS[t].label}</b><table>${VERBS[t].items[verb].map((f,i)=>`<tr><td>${pr[i]}</td><td><span class="es">${f}</span><button class="spk sm" data-say="${f}">🔊</button></td></tr>`).join('')}</table>`; }).join(''); const more=tenses.filter(t=>!sel.includes(t)).map(t=>VERBS[t].label.split(' ')[0]).join(', '); return {html:`<b>${verb}</b> 동사 변화표예요.<br>${tables}${more?`<small>"${verb} ${more.split(', ')[0]}" 처럼 물으면 다른 시제도 보여 드려요 (${more}).</small>`:''}`}; }
+  // 지식 베이스
+  if(window.KB){ const scored=KB.map(e=>({e,s:kbScore(raw,e)})).filter(x=>x.s>0).sort((a,b)=>b.s-a.s); if(scored.length){ const top=scored[0].e; const extra=scored.slice(1,3).filter(x=>x.s>=2).map(x=>`<a href="#" data-ask="${x.e.t}">${x.e.t}</a>`); return {html:`<b>📌 ${top.t}</b><br>${top.a}${top.ch?chapterLink(top.ch):''}${extra.length?'<br><small>관련: '+extra.join(' · ')+'</small>':''}`}; } }
+  // 현재 장 내용 검색
+  if(window.CH){ const toks=words.filter(w=>w.length>=2); const hits=[]; CH.sections.forEach(s=>{ const text=stripHtml((s.title||'')+' '+(s.html||'')+' '+(s.after||'')+' '+(s.items||[]).map(i=>(i.es||i.front||i[0]||'')+' '+(i.ko||i.back||i[1]||'')).join(' ')+' '+(s.rows||[]).map(r=>r.join(' ')).join(' ')); const nt=strip(text.toLowerCase()); const sc=toks.filter(t=>nt.includes(t)).length; if(sc) hits.push({s,sc,text}); }); hits.sort((a,b)=>b.sc-a.sc); if(hits.length){ const h=hits[0]; const idx=strip(h.text.toLowerCase()).indexOf(toks.find(t=>strip(h.text.toLowerCase()).includes(t))||''); const snip=h.text.slice(Math.max(0,idx-60), idx+160).replace(/\s+/g,' '); return {html:`이 장의 <b>"${h.s.title||'학습 내용'}"</b> 부분에 관련 내용이 있어요:<br><small>…${snip}…</small><br>학습 탭에서 해당 섹션을 확인해 보세요.`}; } }
+  return null;
+}
+async function answerAI(q, local){
+  const key=localStorage.getItem('dbsg_ai_key'); if(!key) return null;
+  const model=localStorage.getItem('dbsg_ai_model')||'gemini-2.0-flash';
+  const chap=window.CH?`현재 학습자가 보고 있는 장: ${document.title}`:'학습자는 목차 페이지에 있음';
+  const sys=`너는 다인에듀(Dain Edu)의 스페인어 강사 '후안샘'의 AI 조교 '후안샘 봇'이다. 한국인 성인 초급 학습자에게 기초 스페인어 문법을 한국어로 친절하고 간결하게 설명한다. 스페인어 예문은 반드시 포함하고, 예문 뒤에 한국어 뜻을 괄호로 붙인다. 스페인 표준 용법을 기본으로 하되 중남미 용법 차이가 있으면 짧게 덧붙인다. 답은 300자 내외, 필요하면 표 대신 줄바꿈 목록을 사용한다. 문법 외 질문(정치·의학 등)은 정중히 사양하고 스페인어 학습으로 돌아온다. ${chap}.${local?' 사이트 내장 자료 참고: '+stripHtml(local.html).slice(0,800):''}`;
+  const url=`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(key)}`;
+  const body={system_instruction:{parts:[{text:sys}]},contents:[{role:'user',parts:[{text:q}]}],generationConfig:{temperature:0.4,maxOutputTokens:700}};
+  const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  if(!r.ok){ const t=await r.text(); throw new Error('API '+r.status+': '+t.slice(0,120)); }
+  const j=await r.json(); const txt=j.candidates?.[0]?.content?.parts?.map(p=>p.text).join('')||''; if(!txt) throw new Error('빈 응답');
+  // 간단한 마크다운 → HTML
+  let h=txt.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/\*\*(.+?)\*\*/g,'<b>$1</b>').replace(/`(.+?)`/g,'<span class="es">$1</span>').replace(/^[-*] (.*)$/gm,'• $1').replace(/\n/g,'<br>');
+  return {html:h+'<br><small style="opacity:.6">🤖 AI 답변 — 교재 내용과 다르면 교재를 우선하세요.</small>'};
+}
+function initChat(){
+  if($('.chatfab')) return;
+  const fab=el('button','chatfab','<span class="dot"></span>💬 후안샘 봇'); document.body.appendChild(fab);
+  const win=el('div','chatwin'); win.innerHTML=`<div class="chathead"><div class="av">🧑‍🏫</div><div><b>후안샘 봇</b><small>기초 스페인어 문법 도우미 · 24시간 질문 OK</small></div><span class="spacer"></span><button class="cset" title="AI 연결 설정">⚙</button><button class="cclose" title="닫기">✕</button></div>
+  <div class="chatset"><b>🤖 AI 모드 (선택)</b><br>기본은 교재 지식 베이스로 답하는 오프라인 모드입니다. Google AI Studio의 무료 Gemini API 키를 넣으면 어떤 질문이든 AI가 답합니다. 키는 이 브라우저에만 저장됩니다.<input type="password" class="ckey" placeholder="Gemini API 키 (AIza…)"><input type="text" class="cmodel" placeholder="모델 (기본 gemini-2.0-flash)"><div class="row"><button class="btn p csave">저장</button><button class="btn s cdel">키 삭제</button><a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener" style="font-size:12px;font-weight:800;color:var(--blue)">키 발급받기 ↗</a></div></div>
+  <div class="chatlog"></div><div class="chatsug"></div><div class="chatin"><input type="text" placeholder="예: ser와 estar 차이 / tener 과거 / 3:45 / 1234"><button>전송</button></div>`;
+  document.body.appendChild(win);
+  const log=$('.chatlog',win), inp=$('.chatin input',win), send=$('.chatin button',win), sug=$('.chatsug',win), set=$('.chatset',win);
+  const add=(html,who)=>{ const m=el('div','msg '+who,html); log.appendChild(m); bindSpk(m); $$('[data-ask]',m).forEach(a=>a.onclick=e=>{e.preventDefault(); ask(a.dataset.ask);}); log.scrollTop=log.scrollHeight; return m; };
+  const greet=()=>{ const name=window.CH?document.title.split(' — ')[0]:'목차'; add(`¡Hola! 저는 <b>후안샘 봇</b>이에요 👋<br>지금 <b>${name}</b>을(를) 보고 계시네요. 문법 질문, 동사 변화표(예: "tener 과거"), 숫자·시간 변환(예: "1234", "3:45")을 바로 도와드릴게요.${localStorage.getItem('dbsg_ai_key')?'<br><small>🤖 AI 모드 켜짐</small>':'<br><small>⚙ 버튼에서 Gemini 키를 넣으면 AI 모드로 더 자유롭게 대화할 수 있어요.</small>'}`,'bot'); };
+  const SUG=window.CH?[`이 장 핵심 요약`,'ser와 estar 차이','por와 para 차이','tener 현재','3:45 스페인어로','어떻게 공부해야 해요?']:['어디서부터 시작해요?','ser와 estar 차이','과거 vs 불완료','명령형 만드는 법','숫자 2026','7:30 스페인어로'];
+  SUG.forEach(s=>{ const b=el('button',null,s); b.onclick=()=>ask(s); sug.appendChild(b); });
+  async function ask(q){ if(!q.trim()) return; add(q.replace(/</g,'&lt;'),'user'); inp.value=''; const typing=add('<span></span><span></span><span></span>','bot typing');
+    let local=null;
+    if(/이 장 핵심 요약|요약/.test(q)&&window.CH){ const secs=CH.sections.filter(s=>s.title).slice(0,8).map(s=>`• ${s.title}`).join('<br>'); local={html:`<b>${document.title.split(' — ')[0]} 핵심</b><br>${esify(CH.intro||'')}<br><br><b>학습 내용</b><br>${secs}<br><br>연습문제 ${CH.exercises.length}개 — 모두 초록색으로 만들면 이 장 완료!`}; }
+    else local=answerLocal(q);
+    let out=null;
+    try{ out=await answerAI(q, local); }catch(e){ console.warn(e); if(localStorage.getItem('dbsg_ai_key')) toast('AI 응답 실패: '+e.message.slice(0,60)); }
+    typing.remove();
+    if(out) add(out.html,'bot'); else if(local) add(local.html,'bot');
+    else add(`음, 그 질문은 제 교재 지식에 없네요 🤔<br>이렇게 물어보세요:<br>• 문법 주제: "현재완료 용법", "qué cuál 차이"<br>• 동사: "poder 미래", "ir 명령형"<br>• 숫자/시간: "15000", "9:15"<br><br>⚙ 설정에서 Gemini API 키를 넣으면 어떤 질문이든 AI가 답해 드려요.`,'bot'); }
+  send.onclick=()=>ask(inp.value); inp.onkeydown=e=>{ if(e.key==='Enter') ask(inp.value); };
+  fab.onclick=()=>{ win.classList.toggle('open'); if(win.classList.contains('open')){ if(!log.children.length) greet(); setTimeout(()=>inp.focus(),100); } };
+  $('.cclose',win).onclick=()=>win.classList.remove('open');
+  $('.cset',win).onclick=()=>{ set.classList.toggle('open'); $('.ckey',set).value=localStorage.getItem('dbsg_ai_key')||''; $('.cmodel',set).value=localStorage.getItem('dbsg_ai_model')||''; };
+  $('.csave',set).onclick=()=>{ const k=$('.ckey',set).value.trim(); const m=$('.cmodel',set).value.trim(); if(k) localStorage.setItem('dbsg_ai_key',k); else localStorage.removeItem('dbsg_ai_key'); if(m) localStorage.setItem('dbsg_ai_model',m); else localStorage.removeItem('dbsg_ai_model'); set.classList.remove('open'); add(k?'🤖 AI 모드가 켜졌어요. 이제 무엇이든 물어보세요!':'오프라인 모드로 돌아왔어요.','bot'); };
+  $('.cdel',set).onclick=()=>{ localStorage.removeItem('dbsg_ai_key'); $('.ckey',set).value=''; set.classList.remove('open'); add('키를 삭제했어요. 오프라인 모드로 답합니다.','bot'); };
+  window.askBot=q=>{ win.classList.add('open'); if(!log.children.length) greet(); ask(q); };
+}
+
 /* ---------- 공개 ---------- */
 window.App={CHAPTERS,PARTS,renderChapter,renderHub,speak,numToEs,timeToEs,toggleTheme,initTheme,loadP,saveP,check,confetti,toast,VERBS};
 initTheme();
@@ -584,5 +684,6 @@ document.addEventListener('DOMContentLoaded',()=>{
   const rb=$('#resetBtn'); if(rb) rb.onclick=()=>{ if(confirm('모든 학습 진도를 초기화할까요?')){ localStorage.removeItem(KEY); location.reload(); } };
   if(window.CH){ renderChapter(window.CH); }
   if($('#hub')) renderHub();
+  initChat();
 });
 })();
